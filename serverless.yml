@@ -1,0 +1,87 @@
+
+service: sls-api 
+custom:
+  dynamodb:
+    start:
+      port: 8000
+      migrate: true # please create the tables
+      inMemory: true
+      onStart: true
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: eu-west-2
+  environment:
+    JOBS_TABLE: ${self:service}-${self:opt, self:provider.stage}-jobs
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan 
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "*"
+functions:
+  hello: #name of function
+    handler: handler.hello #the file and location,path of function executive code, in this case in file handler and part hello
+  jobs:
+    handler: src/jobs/job.jobhandler
+  fetchJobs:
+    handler: src/jobs/list.alljobs
+    events:
+      - http:
+          method: GET
+          path: /jobs 
+  createJobs:
+    handler: src/jobs/add.create
+    events:
+      - http:
+          method: POST
+          path: /jobs
+  getSingleJob:
+    handler: src/jobs/findOne.findbyid
+    events:
+      - http:
+          method: GET
+          path: /jobs/{id}
+          request: 
+            parameters:
+              id: true 
+  deleteJob:
+    handler: src/jobs/delete.deletebyid
+    events:
+      - http:
+          method: DELETE
+          path: /jobs/{id}
+          request: 
+            parameters:
+              id: true
+  updateJob:
+    handler: src/jobs/update.updatebyid
+    events:
+      - http:
+          method: PUT
+          path: /jobs/{id}
+          request: 
+            parameters:
+              id: true                  
+plugins:
+  - serverless-offline    
+  - serverless-dynamodb-local
+resources:
+  Resources:
+    JobsDynamoDBTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: ${self:provider.environment.JOBS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
